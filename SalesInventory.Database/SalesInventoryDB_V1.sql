@@ -111,8 +111,35 @@ BEGIN
 END
 GO
 
-SELECT * FROM Products
+-- Insert Customer (100 Customers)
+DECLARE @i INT =1;
+WHILE @i <=100
+BEGIN
+	INSERT INTO Customers (CustomerName, Email, Phone, City, Country, CreatedDate)
+	VALUES (
+		'Customer' + CAST(@i AS NVARCHAR),
+		'Customer' + CAST(@i AS NVARCHAR) + '@gmail.com',
+		'+88017' + RIGHT('0000000' +CAST(@i AS NVARCHAR), 8),
+		CASE(@I % 5)
+			WHEN 0 THEN 'Dhaka'
+			WHEN 1 THEN 'Chittagong'
+			WHEN 2 THEN 'Rajshahi'
+			WHEN 3 THEN 'Rangpur'
+			ELSE 'Barishal'
+		END,
+		'Bangladesh',
+		DATEADD(DAY, -RAND() * 730, GETDATE())
+	);
+	SET @i = @i +1;
+END
+
 GO
+
+SELECT * FROM Customers
+GO
+
+
+
 
 
 
