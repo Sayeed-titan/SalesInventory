@@ -94,10 +94,25 @@ GO
 
 -- Insert Products (50 products)
 
+DECLARE @i INT=1;
+WHILE @i <=50
+BEGIN
+	INSERT INTO Products (ProductName, CategoryId, UnitPrice, StockQuantity, ReorderLevel, CreatedDate)
+	VALUES (
+		'Product' + CAST(@i AS NVARCHAR),
+		((@i -1 )%5) +1, -- 50 products distributed equally to 5 categories
+		-- if @i =2 then 2 -1 = 1, 1 /5 = 0, 1 still remains so 1%5 =1, then 1+1
+		ROUND(RAND() * 1000 +10, 2),
+		CAST(RAND() * 500 AS INT),
+		10,
+		DATEADD(DAY, - RAND() * 365, GETDATE())
+	);
+	SET @i = @i+1;
+END
+GO
 
-
-
-
+SELECT * FROM Products
+GO
 
 
 
