@@ -23,7 +23,7 @@ CREATE TABLE Categories(
 	Description NVARCHAR(500),
 	CreatedDate DATETIME NOT NULL DEFAULT GETDATE()
 );
-
+GO
 -- 2. Products Table
 CREATE TABLE Products(
 	ProductId INT PRIMARY KEY IDENTITY(1,1),
@@ -39,7 +39,7 @@ CREATE TABLE Products(
 	-- Table Level Constraints
 	FOREIGN KEY (CategoryId) REFERENCES Categories(CategoryId)
 );
-
+GO
 -- 3. Customers Table
 CREATE TABLE Customers (
 	CustomerId INT PRIMARY KEY IDENTITY (1,1),
@@ -51,7 +51,7 @@ CREATE TABLE Customers (
 	Country NVARCHAR(100),
 	CreatedDate DATETIME NOT NULL DEFAULT GETDATE()
 );
-
+GO
 -- 4. Sales Orders Table
 CREATE TABLE SalesOrders (
 	OrderId INT PRIMARY KEY IDENTITY(1,1),
@@ -63,7 +63,7 @@ CREATE TABLE SalesOrders (
 	CreatedDate DATETIME NOT NULL DEFAULT GETDATE()
 	FOREIGN KEY (CustomerId) REFERENCES Customers(CustomerId)	
 );
-
+GO
 -- 5. Sales Order Details Table
 CREATE TABLE SalesOrderDetails (
 	OrderDetailsId INT PRIMARY KEY IDENTITY(1,1),
@@ -78,7 +78,23 @@ CREATE TABLE SalesOrderDetails (
 
 GO
 
+-- Sample Data Insertion (Small dataset for V1)
+
 -- Insert Categories
+INSERT INTO Categories (CategoryName, Description) VALUES
+('Electronics', 'Electronic items and gadgets'),
+('Clothing', 'Apparel and fashion items'),
+('Food & Beverages' , 'Food and drink products'),
+('Furniture', 'Home and office furniture'),
+('Books', 'Books and publications');
+GO
+
+SELECT * FROM Categories
+GO
+
+-- Insert Products (50 products)
+
+
 
 
 
