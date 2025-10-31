@@ -28,6 +28,7 @@ namespace SalesInventoryV1 . Models
 
             public DateTime CreatedDate { get; set; }
 
+            [ForeignKey ( "CustomerId" )]
             public virtual Customer Customer { get; set; }
 
       }

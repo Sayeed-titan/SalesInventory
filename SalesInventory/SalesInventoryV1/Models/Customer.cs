@@ -34,6 +34,6 @@ namespace SalesInventoryV1 . Models
 
             public DateTime CreatedDate { get; set; }
 
-
+            public virtual ICollection<SalesOrder> SalesOrders { get; set; }
       }
 }
