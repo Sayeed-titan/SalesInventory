@@ -138,11 +138,60 @@ GO
 SELECT * FROM Customers
 GO
 
+-- Insert Sales Orders (500 Orders for peformance testing)
+DECLARE @i INT =1;
+WHILE @i <= 500
+BEGIN
+    DECLARE @CustomerId INT = (RAND() * 100) + 1;
+    DECLARE @OrderDate DATETIME = DATEADD(DAY, -RAND() * 365, GETDATE());
+    DECLARE @OrderNumber NVARCHAR(50) = 'ORD-' + FORMAT(@i, '000000');
+    
+    INSERT INTO SalesOrders (OrderNumber, CustomerId, OrderDate, TotalAmount, Status, CreatedDate)
+    VALUES (
+        @OrderNumber,
+        @CustomerId,
+        @OrderDate,
+        0, -- Will be updated after details
+        CASE (CAST(RAND() * 3 AS INT))
+            WHEN 0 THEN 'Pending'
+            WHEN 1 THEN 'Completed'
+            ELSE 'Cancelled'
+        END,
+        @OrderDate
+    );
+    
+    DECLARE @OrderId INT = SCOPE_IDENTITY();
+    DECLARE @TotalAmount DECIMAL(18,2) = 0;
+    
+    -- Insert 1-5 order details per order
+    DECLARE @DetailCount INT = (RAND() * 5) + 1;
+    DECLARE @j INT = 1;
+    WHILE @j <= @DetailCount
+    BEGIN
+        DECLARE @ProductId INT = (RAND() * 50) + 1;
+        DECLARE @Quantity INT = (RAND() * 10) + 1;
+        DECLARE @UnitPrice DECIMAL(18,2) = (SELECT UnitPrice FROM Products WHERE ProductId = @ProductId);
+        DECLARE @SubTotal DECIMAL(18,2) = @UnitPrice * @Quantity;
+        
+        INSERT INTO SalesOrderDetails (OrderId, ProductId, Quantity, UnitPrice, SubTotal)
+        VALUES (@OrderId, @ProductId, @Quantity, @UnitPrice, @SubTotal);
+        
+        SET @TotalAmount = @TotalAmount + @SubTotal;
+        SET @j = @j + 1;
+    END
+    
+    -- Update order total
+    UPDATE SalesOrders SET TotalAmount = @TotalAmount WHERE OrderId = @OrderId;
+    
+    SET @i = @i + 1;
+END
 
+GO
 
-
-
-
+SELECT * FROM SalesOrders
+GO
+SELECT* FROM SalesOrderDetails
+GO
 
 -- This shows all FK relationships.
 -- You can then see which tables have no references
