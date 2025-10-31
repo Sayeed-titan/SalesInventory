@@ -64,6 +64,28 @@ CREATE TABLE SalesOrders (
 	FOREIGN KEY (CustomerId) REFERENCES Customers(CustomerId)	
 );
 
+-- 5. Sales Order Details Table
+CREATE TABLE SalesOrderDetails (
+	OrderDetailsId INT PRIMARY KEY IDENTITY(1,1),
+	OrderId INT NOT NULL, 
+	ProductId INT NOT NULL,
+	Quantity INT NOT NULL,
+	UnitPrice DECIMAL(18,2) NOT NULL,
+	SubTotal DECIMAL(18,2) NOT NULL,
+	FOREIGN KEY (OrderId) REFERENCES SalesOrders(OrderId),
+	FOREIGN KEY (ProductId) REFERENCES Products(ProductId)
+);
+
+GO
+
+-- Insert Categories
+
+
+
+
+
+
+
 -- This shows all FK relationships.
 -- You can then see which tables have no references
 SELECT 
@@ -74,3 +96,5 @@ FROM sys.foreign_keys AS fk
 INNER JOIN sys.tables AS tp ON fk.parent_object_id = tp.object_id
 INNER JOIN sys.tables AS tr ON fk.referenced_object_id = tr.object_id
 ORDER BY tr.name;
+
+
