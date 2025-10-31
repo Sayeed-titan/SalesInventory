@@ -188,10 +188,7 @@ END
 
 GO
 
-SELECT * FROM SalesOrders
-GO
-SELECT* FROM SalesOrderDetails
-GO
+
 
 -- This shows all FK relationships.
 -- You can then see which tables have no references
@@ -205,3 +202,13 @@ INNER JOIN sys.tables AS tr ON fk.referenced_object_id = tr.object_id
 ORDER BY tr.name;
 
 
+-- Verification Queries
+SELECT 'Categories' AS TableName, COUNT(*) AS RecordCount FROM Categories
+UNION ALL
+SELECT 'Products', COUNT(*) FROM Products
+UNION ALL
+SELECT 'Customers', COUNT(*) FROM Customers
+UNION ALL
+SELECT 'SalesOrders', COUNT(*) FROM SalesOrders
+UNION ALL
+SELECT 'SalesOrderDetails', COUNT(*) FROM SalesOrderDetails;
