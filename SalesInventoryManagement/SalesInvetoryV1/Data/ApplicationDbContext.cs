@@ -37,10 +37,10 @@ namespace SalesInventoryV1 . Data
                       . WithMany ( so => so . OrderDetails )
                       . HasForeignKey ( sod => sod . OrderId );
 
-                  modelBuilder . Entity<SalesOrderDetail> ( )
-                      . HasOne ( sod => sod . Product )
-                      . WithMany ( )
-                      . HasForeignKey ( sod => sod . ProductId );
+                  modelBuilder.Entity<SalesOrderDetail>()
+                        .HasOne(sod => sod.Product)
+                        .WithMany()
+                        .HasForeignKey ( sod => sod . ProductId );
             }
       }
 }

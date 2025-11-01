@@ -49,6 +49,8 @@ namespace SalesInventoryV1 . Models
             // Navigation property
             [ForeignKey ( "CategoryId" )]
             public virtual Category Category { get; set; }
+
+            public virtual ICollection<SalesOrderDetail> SalesOrderDetails { get; set; }
       }
 
       // ===== Customer Entity =====
