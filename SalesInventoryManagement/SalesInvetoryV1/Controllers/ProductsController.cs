@@ -2,6 +2,7 @@
 using Microsoft . EntityFrameworkCore;
 
 using SalesInventoryV1 . Data;
+using SalesInventoryV1 . Models;
 
 namespace SalesInvetoryV1 . Controllers
 {
@@ -52,6 +53,30 @@ namespace SalesInvetoryV1 . Controllers
                   return View ( product );
             }
 
+            //CREATE - GET
+            public IActionResult Create ( )
+            {
+                  ViewBag.Categories = _context.Categories.ToList();
+                  return View ( );
+            }
 
+            [HttpPost]
+            [ValidateAntiForgeryToken]
+            public IActionResult Create (Product product)
+            {
+                  if ( ModelState . IsValid )
+                  {
+                        product.CreatedDate = DateTime . Now;
+                        product.IsActive = true;
+
+                        _context.Products.Add ( product );
+                        _context.SaveChanges ( );
+
+                        return RedirectToAction ( nameof ( Index ) );
+                  }
+
+                  ViewBag.Categories = _context.Categories.ToList();
+                  return View ( product );  
+            }
       }
 }
