@@ -40,6 +40,17 @@ namespace SalesInvetoryV1 . Controllers
                   return View ( products );
             }
 
+            public IActionResult Details(int id )
+            {
+                  var product = _context.Products
+                        .Include(p => p.Category)
+                        .FirstOrDefault(p => p.ProductId == id);
+
+                  if ( product == null )
+                        return NotFound ( );
+
+                  return View ( product );
+            }
 
 
       }
