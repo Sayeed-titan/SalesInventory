@@ -1,0 +1,220 @@
+@* Views/SalesOrders/Details.cshtml *@
+@* VERSION 1: Order Details Page *@
+
+@model SalesInventoryV2.Models.SalesOrder
+
+@{
+    ViewData["Title"] = "Order Details";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Order Details</h2>
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Orders
+        </a>
+    </div>
+    <hr />
+
+    @* Order Header Information *@
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-receipt"></i> Order #@Model.OrderNumber
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="text-muted">Customer Information</h5>
+                            <dl class="row">
+                                <dt class="col-sm-5">Customer Name:</dt>
+                                <dd class="col-sm-7">@Model.Customer.CustomerName</dd>
+
+                                <dt class="col-sm-5">Email:</dt>
+                                <dd class="col-sm-7">
+                                    @if (!string.IsNullOrEmpty(Model.Customer.Email))
+                                    {
+                                        <a href="mailto:@Model.Customer.Email">@Model.Customer.Email</a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">N/A</span>
+                                    }
+                                </dd>
+
+                                <dt class="col-sm-5">Phone:</dt>
+                                <dd class="col-sm-7">
+                                    @if (!string.IsNullOrEmpty(Model.Customer.Phone))
+                                    {
+                                        @Model.Customer.Phone
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">N/A</span>
+                                    }
+                                </dd>
+
+                                <dt class="col-sm-5">City:</dt>
+                                <dd class="col-sm-7">
+                                    @if (!string.IsNullOrEmpty(Model.Customer.City))
+                                    {
+                                        @Model.Customer.City
+                                        @if (!string.IsNullOrEmpty(Model.Customer.Country))
+                                        {
+                                            <text>, @Model.Customer.Country</text>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">N/A</span>
+                                    }
+                                </dd>
+                            </dl>
+                        </div>
+
+                        <div class="col-md-6">
+                            <h5 class="text-muted">Order Information</h5>
+                            <dl class="row">
+                                <dt class="col-sm-5">Order Date:</dt>
+                                <dd class="col-sm-7">@Model.OrderDate.ToString("MMMM dd, yyyy")</dd>
+
+                                <dt class="col-sm-5">Order Time:</dt>
+                                <dd class="col-sm-7">@Model.OrderDate.ToString("hh:mm tt")</dd>
+
+                                <dt class="col-sm-5">Status:</dt>
+                                <dd class="col-sm-7">
+                                    @if (Model.Status == "Completed")
+                                    {
+                                        <span class="badge bg-success fs-6">@Model.Status</span>
+                                    }
+                                    else if (Model.Status == "Pending")
+                                    {
+                                        <span class="badge bg-warning text-dark fs-6">@Model.Status</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger fs-6">@Model.Status</span>
+                                    }
+                                </dd>
+
+                                <dt class="col-sm-5">Total Items:</dt>
+                                <dd class="col-sm-7">@Model.OrderDetails.Sum(od => od.Quantity)</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Order Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Subtotal:</span>
+                        <strong>$@Model.OrderDetails.Sum(od => od.SubTotal).ToString("N2")</strong>
+                    </div>
+                    <hr />
+                    <div class="d-flex justify-content-between">
+                        <h5>Total Amount:</h5>
+                        <h4 class="text-success">$@Model.TotalAmount.ToString("N2")</h4>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">Actions</h6>
+                    <a asp-action="Index" class="btn btn-secondary w-100 mb-2">
+                        <i class="bi bi-list"></i> View All Orders
+                    </a>
+                    <form asp-action="Delete" asp-route-id="@Model.OrderId" method="post"
+                          onsubmit="return confirm('Are you sure you want to delete this order? This action cannot be undone.');">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-danger w-100">
+                            <i class="bi bi-trash"></i> Delete Order
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Order Items Table *@
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-cart"></i> Order Items</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>#</th>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th>Unit Price</th>
+                            <th>Quantity</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{
+                            var itemNumber = 1;
+                        }
+                        @foreach (var detail in Model.OrderDetails.OrderBy(od => od.OrderDetailId))
+                        {
+                            <tr>
+                                <td>@itemNumber</td>
+                                <td>
+                                    <strong>@detail.Product.ProductName</strong>
+                                </td>
+                                <td>@detail.Product.Category.CategoryName</td>
+                                <td>$@detail.UnitPrice.ToString("N2")</td>
+                                <td>
+                                    <span class="badge bg-primary fs-6">@detail.Quantity</span>
+                                </td>
+                                <td>
+                                    <strong class="text-success">$@detail.SubTotal.ToString("N2")</strong>
+                                </td>
+                            </tr>
+                            itemNumber++;
+                        }
+                    </tbody>
+                    <tfoot class="table-secondary">
+                        <tr>
+                            <td colspan="4" class="text-end"><strong>Total Quantity:</strong></td>
+                            <td>
+                                <strong class="badge bg-primary fs-6">
+                                    @Model.OrderDetails.Sum(od => od.Quantity)
+                                </strong>
+                            </td>
+                            <td>
+                                <strong class="text-success fs-5">
+                                    $@Model.TotalAmount.ToString("N2")
+                                </strong>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @* Additional Information *@
+    <div class="card mt-3">
+        <div class="card-body">
+            <small class="text-muted">
+                <strong>Order Created:</strong> @Model.CreatedDate.ToString("MMMM dd, yyyy hh:mm tt")
+            </small>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap Icons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">

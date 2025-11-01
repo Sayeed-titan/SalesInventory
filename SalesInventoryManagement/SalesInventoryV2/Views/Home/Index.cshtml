@@ -1,8 +1,66 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container">
+    <div class="jumbotron mt-4 p-5 bg-light rounded">
+        <h1 class="display-4">Welcome to Sales & Inventory System</h1>
+        <p class="lead">Version 2.0 - Baseline Performance</p>
+        <hr class="my-4">
+        <p>This is the unoptimized version with intentional performance bottlenecks for comparison purposes.</p>
+        <div class="alert alert-success">
+            <strong> Performance Improvement:</strong> This version demonstrates common performance improvements in web applications.
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Product Management</h5>
+                    <p class="card-text">Manage your product inventory</p>
+                    <a asp-controller="Products" asp-action="Index" class="btn btn-primary">Go to Products</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Sales Orders</h5>
+                    <p class="card-text">Create and manage orders</p>
+                    <a asp-controller="SalesOrders" asp-action="Index" class="btn btn-primary">Go to Orders</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Sales Report</h5>
+                    <p class="card-text">View sales analytics</p>
+                    <a asp-controller="SalesOrders" asp-action="SalesReport" class="btn btn-primary">View Report</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card border-danger">
+                <div class="card-header bg-success text-white">
+                    <h5>Performance Improvement (V2)</h5>
+                </div>
+                <div class="card-body">
+                    <ul>
+                        <li> database indexes on foreign keys and date columns</li>
+                        <li>Asynchronous controllers (blocking I/O operations)</li>
+                        <li>Server-side data filtering (loads all records to memory)</li>
+                        <li>stored procedures for complex reports</li>
+                        <li>No need of Full page reloads for report generation</li>
+                        <li> No Multiple database round-trips in loops</li>
+                    </ul>
+                    <p class="mb-0"><strong>Expected Report Generation Time:</strong> below 1 seconds for 500 orders</p>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

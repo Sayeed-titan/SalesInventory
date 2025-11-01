@@ -1,0 +1,76 @@
+@model SalesInventoryV2.Models.Product
+
+@{
+    ViewData["Title"] = "Product Details";
+}
+
+<div class="container mt-4">
+    <h2>Product Details</h2>
+    <hr />
+
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h4>@Model.ProductName</h4>
+        </div>
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Product ID</dt>
+                <dd class="col-sm-9">@Model.ProductId</dd>
+
+                <dt class="col-sm-3">Product Name</dt>
+                <dd class="col-sm-9">@Model.ProductName</dd>
+
+                <dt class="col-sm-3">Category</dt>
+                <dd class="col-sm-9">@Model.Category.CategoryName</dd>
+
+                <dt class="col-sm-3">Unit Price</dt>
+                <dd class="col-sm-9">
+                    <span class="h5 text-success">$@Model.UnitPrice.ToString("N2")</span>
+                </dd>
+
+                <dt class="col-sm-3">Stock Quantity</dt>
+                <dd class="col-sm-9">
+                    @if (Model.StockQuantity <= Model.ReorderLevel)
+                    {
+                        <span class="badge bg-danger fs-6">@Model.StockQuantity (Low Stock!)</span>
+                        <br /><small class="text-muted">Below reorder level of @Model.ReorderLevel</small>
+                    }
+                    else
+                    {
+                        <span class="badge bg-success fs-6">@Model.StockQuantity</span>
+                    }
+                </dd>
+
+                <dt class="col-sm-3">Reorder Level</dt>
+                <dd class="col-sm-9">@Model.ReorderLevel</dd>
+
+                <dt class="col-sm-3">Status</dt>
+                <dd class="col-sm-9">
+                    @if (Model.IsActive)
+                    {
+                        <span class="badge bg-success">Active</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-secondary">Inactive</span>
+                    }
+                </dd>
+
+                <dt class="col-sm-3">Created Date</dt>
+                <dd class="col-sm-9">@Model.CreatedDate.ToString("MMMM dd, yyyy")</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a asp-action="Edit" asp-route-id="@Model.ProductId" class="btn btn-primary">
+            <i class="bi bi-pencil"></i> Edit
+        </a>
+        <a asp-action="Delete" asp-route-id="@Model.ProductId" class="btn btn-danger">
+            <i class="bi bi-trash"></i> Delete
+        </a>
+        <a asp-action="Index" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to List
+        </a>
+    </div>
+</div>
