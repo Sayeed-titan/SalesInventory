@@ -1,0 +1,170 @@
+@* Views/SalesOrders/SalesReport.cshtml *@
+@* VERSION 1: Full page reload for report generation (SLOW!) *@
+
+@model dynamic
+
+@{
+    ViewData["Title"] = "Sales Report";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h2>Sales Report</h2>
+            <hr />
+
+            @* BOTTLENECK: Traditional form submission causes full page reload *@
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="get" asp-action="SalesReport">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label>Start Date:</label>
+                                <input type="date" name="startDate" 
+                                       class="form-control" 
+                                       value="@ViewBag.StartDate" 
+                                       required />
+                            </div>
+                            <div class="col-md-4">
+                                <label>End Date:</label>
+                                <input type="date" name="endDate" 
+                                       class="form-control" 
+                                       value="@ViewBag.EndDate" 
+                                       required />
+                            </div>
+                            <div class="col-md-4">
+                                <label>&nbsp;</label>
+                                <button type="submit" class="btn btn-primary btn-block">
+                                    Generate Report
+                                </button>
+                                @* NO loading spinner - page just freezes during load *@
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            @* Report Summary Cards *@
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Orders</h5>
+                            <h2>@Model.TotalOrders</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Revenue</h5>
+                            <h2>$@Model.TotalRevenue.ToString("N2")</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Completed</h5>
+                            <h2>@Model.CompletedOrders</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning mb-3">
+                        <div class="card-body">
+                            <h5 class="card-title">Pending</h5>
+                            <h2>@Model.PendingOrders</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* Top Products Table *@
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Top 10 Products by Revenue</h4>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Product Name</th>
+                                <th>Quantity Sold</th>
+                                <th>Total Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var product in Model.TopProducts)
+                            {
+                                <tr>
+                                    <td>@product.ProductName</td>
+                                    <td>@product.TotalQuantity</td>
+                                    <td>$@product.TotalRevenue.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @* Top Customers Table *@
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Top 10 Customers</h4>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Customer Name</th>
+                                <th>Total Orders</th>
+                                <th>Total Spent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var customer in Model.TopCustomers)
+                            {
+                                <tr>
+                                    <td>@customer.CustomerName</td>
+                                    <td>@customer.TotalOrders</td>
+                                    <td>$@customer.TotalSpent.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @* Revenue by Category *@
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Revenue by Category</h4>
+                </div>
+                <div class="card-body">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Total Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var category in Model.RevenueByCategory)
+                            {
+                                <tr>
+                                    <td>@category.CategoryName</td>
+                                    <td>$@category.TotalRevenue.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <a asp-action="Index" class="btn btn-secondary">Back to Orders</a>
+        </div>
+    </div>
+</div>
+
+@* NO AJAX, NO jQuery dynamic loading - just traditional form submission *@

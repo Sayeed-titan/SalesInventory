@@ -1,0 +1,144 @@
+@{
+    ViewData["Title"] = "Create Sales Order";
+}
+
+<div class="container mt-4">
+    <h2>Create New Sales Order</h2>
+    <hr />
+
+    <form asp-action="Create" method="post" id="orderForm">
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5><i class="bi bi-person"></i> Customer Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-3">
+                    <label for="customerId">Select Customer: *</label>
+                    <select name="customerId" id="customerId" class="form-control" required>
+                        <option value="">-- Select Customer --</option>
+                        @foreach (var customer in ViewBag.Customers)
+                        {
+                            <option value="@customer.CustomerId">
+                                @customer.CustomerName - @customer.Email - @customer.City
+                            </option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white">
+                <h5><i class="bi bi-cart"></i> Order Items</h5>
+            </div>
+            <div class="card-body">
+                <div id="orderItems">
+                    @* Initial order item row *@
+                    <div class="row mb-3 order-item">
+                        <div class="col-md-6">
+                            <label>Product: *</label>
+                            <select name="productIds" class="form-control product-select" required>
+                                <option value="">-- Select Product --</option>
+                                @foreach (var product in ViewBag.Products)
+                                {
+                                    <option value="@product.ProductId" data-price="@product.UnitPrice">
+                                        @product.ProductName - $@product.UnitPrice.ToString("N2") (Stock: @product.StockQuantity)
+                                    </option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label>Quantity: *</label>
+                            <input type="number" name="quantities" class="form-control quantity-input" 
+                                   min="1" value="1" required />
+                        </div>
+                        <div class="col-md-3">
+                            <label>Subtotal:</label>
+                            <input type="text" class="form-control subtotal-display" readonly value="$0.00" />
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-secondary btn-sm" id="addItemBtn">
+                    <i class="bi bi-plus-circle"></i> Add Another Item
+                </button>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-9 text-end">
+                        <h4>Total Amount:</h4>
+                    </div>
+                    <div class="col-md-3">
+                        <h4 id="grandTotal" class="text-success">$0.00</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="bi bi-check-circle"></i> Create Order
+            </button>
+            <a asp-action="Index" class="btn btn-secondary btn-lg">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+<script>
+    $(document).ready(function() {
+        // Add new order item row
+        $('#addItemBtn').click(function() {
+            var newItem = $('.order-item:first').clone();
+            newItem.find('select').val('');
+            newItem.find('input[type="number"]').val('1');
+            newItem.find('.subtotal-display').val('$0.00');
+            
+            // Add remove button
+            var removeBtn = '<div class="col-md-12 mt-2"><button type="button" class="btn btn-danger btn-sm remove-item"><i class="bi bi-trash"></i> Remove</button></div>';
+            newItem.append(removeBtn);
+            
+            $('#orderItems').append(newItem);
+            updateGrandTotal();
+        });
+        
+        // Remove order item
+        $(document).on('click', '.remove-item', function() {
+            $(this).closest('.order-item').remove();
+            updateGrandTotal();
+        });
+        
+        // Calculate subtotal when product or quantity changes
+        $(document).on('change', '.product-select, .quantity-input', function() {
+            var row = $(this).closest('.order-item');
+            calculateRowSubtotal(row);
+            updateGrandTotal();
+        });
+        
+        function calculateRowSubtotal(row) {
+            var select = row.find('.product-select');
+            var quantity = parseInt(row.find('.quantity-input').val()) || 0;
+            var price = parseFloat(select.find('option:selected').data('price')) || 0;
+            var subtotal = price * quantity;
+            
+            row.find('.subtotal-display').val('$' + subtotal.toFixed(2));
+        }
+        
+        function updateGrandTotal() {
+            var total = 0;
+            $('.order-item').each(function() {
+                var subtotalText = $(this).find('.subtotal-display').val();
+                var subtotal = parseFloat(subtotalText.replace('$', '')) || 0;
+                total += subtotal;
+            });
+            
+            $('#grandTotal').text('$' + total.toFixed(2));
+        }
+    });
+</script>
+}
