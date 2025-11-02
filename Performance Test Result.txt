@@ -1,0 +1,26 @@
+V1
+
+Sales Order Index
+
+DOM Load 47.99s
+Load 1.7 min
+
+
+Sales Report
+
+DOM Load: 4.45s
+Finish 9.28s
+
+
+V2
+
+Sales Order Index
+
+DOM Load 
+Load 
+
+
+Sales Report
+
+DOM Load: 
+Finish 

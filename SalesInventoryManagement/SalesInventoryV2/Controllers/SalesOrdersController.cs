@@ -1,13 +1,20 @@
-﻿using Microsoft . AspNetCore . Mvc;
+﻿// Controllers/SalesOrdersController.cs
+// VERSION 2: FIXED - CPU 100% issue resolved
+
+using Microsoft . AspNetCore . Mvc;
+using Microsoft . Data . SqlClient;
 using Microsoft . EntityFrameworkCore;
 
-using System;
-using System . Linq;
-using System . Collections . Generic;
 using SalesInventoryV2 . Data;
 using SalesInventoryV2 . Models;
 
-namespace SalesInventoryV1 . Controllers
+using System;
+using System . Collections . Generic;
+using System . Data;
+using System . Linq;
+using System . Threading . Tasks;
+
+namespace SalesInventoryV2 . Controllers
 {
       public class SalesOrdersController : Controller
       {
@@ -18,48 +25,58 @@ namespace SalesInventoryV1 . Controllers
                   _context = context;
             }
 
-            // GET: SalesOrders/Index
-            public IActionResult Index ( DateTime? startDate , DateTime? endDate , string status )
+            // ✅ FIXED: Index with pagination and limited data loading
+            public async Task<IActionResult> Index ( DateTime? startDate , DateTime? endDate , string status , int page = 1 )
             {
-                  // Load orders with Customer - NO stored procedure
-                  var orders = _context.SalesOrders
-                .Include(so => so.Customer)
-                .ToList();
+                  const int pageSize = 50; // ✅ Only load 50 orders at a time!
 
-                  // Client-side filtering
-                  if ( startDate . HasValue )
-                  {
-                        orders = orders . Where ( o => o . OrderDate >= startDate . Value ) . ToList ( );
-                  }
+                  // ✅ Set default date range to last 30 days (not ALL data!)
+                  if ( !startDate . HasValue )
+                        startDate = DateTime . Now . AddDays ( -30 );
+                  if ( !endDate . HasValue )
+                        endDate = DateTime . Now;
 
-                  if ( endDate . HasValue )
-                  {
-                        orders = orders . Where ( o => o . OrderDate <= endDate . Value ) . ToList ( );
-                  }
+                  // ✅ Build query with filters
+                  var query = _context.SalesOrders
+                .Include(so => so.Customer) // ✅ Only load Customer, NOT OrderDetails!
+                .Where(o => o.OrderDate >= startDate.Value && o.OrderDate <= endDate.Value);
 
+                  // ✅ Filter by status
                   if ( !string . IsNullOrEmpty ( status ) )
                   {
-                        orders = orders . Where ( o => o . Status == status ) . ToList ( );
+                        query = query . Where ( o => o . Status == status );
                   }
 
-                  orders = orders . OrderByDescending ( o => o . OrderDate ) . ToList ( );
+                  // ✅ Get total count for pagination
+                  var totalOrders = await query.CountAsync();
 
-                  ViewBag . StartDate = startDate?.ToString ( "yyyy-MM-dd" );
-                  ViewBag . EndDate = endDate?.ToString ( "yyyy-MM-dd" );
+                  // ✅ Get only current page of data
+                  var orders = await query
+                .OrderByDescending(o => o.OrderDate)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+                  // ✅ Pass pagination info to view
+                  ViewBag . StartDate = startDate . Value . ToString ( "yyyy-MM-dd" );
+                  ViewBag . EndDate = endDate . Value . ToString ( "yyyy-MM-dd" );
                   ViewBag . Status = status;
+                  ViewBag . CurrentPage = page;
+                  ViewBag . TotalPages = ( int ) Math . Ceiling ( totalOrders / ( double ) pageSize );
+                  ViewBag . TotalOrders = totalOrders;
 
                   return View ( orders );
             }
 
-            // GET: SalesOrders/Details/5
-            public IActionResult Details ( int id )
+            // ✅ FIXED: Details - still loads full order but only for ONE order
+            public async Task<IActionResult> Details ( int id )
             {
-                  var order = _context.SalesOrders
+                  var order = await _context.SalesOrders
                 .Include(so => so.Customer)
                 .Include(so => so.OrderDetails)
                     .ThenInclude(od => od.Product)
                         .ThenInclude(p => p.Category)
-                .FirstOrDefault(so => so.OrderId == id);
+                .FirstOrDefaultAsync(so => so.OrderId == id);
 
                   if ( order == null )
                         return NotFound ( );
@@ -67,31 +84,35 @@ namespace SalesInventoryV1 . Controllers
                   return View ( order );
             }
 
-            // GET: SalesOrders/Create
-            public IActionResult Create ( )
+            // ✅ Async Create GET
+            public async Task<IActionResult> Create ( )
             {
-                  ViewBag . Customers = _context . Customers . OrderBy ( c => c . CustomerName ) . ToList ( );
-                  ViewBag . Products = _context . Products
+                  ViewBag . Customers = await _context . Customers
+                      . OrderBy ( c => c . CustomerName )
+                      . ToListAsync ( );
+
+                  ViewBag . Products = await _context . Products
                       . Include ( p => p . Category )
                       . Where ( p => p . IsActive )
                       . OrderBy ( p => p . ProductName )
-                      . ToList ( );
+                      . ToListAsync ( );
+
                   return View ( );
             }
 
-            // POST: SalesOrders/Create
+            // ✅ Async Create POST with batched queries
             [HttpPost]
             [ValidateAntiForgeryToken]
-            public IActionResult Create ( int customerId , List<int> productIds , List<int> quantities )
+            public async Task<IActionResult> Create ( int customerId , List<int> productIds , List<int> quantities )
             {
                   if ( productIds == null || productIds . Count == 0 )
                   {
                         ModelState . AddModelError ( "" , "Please add at least one product" );
-                        ViewBag . Customers = _context . Customers . ToList ( );
-                        ViewBag . Products = _context . Products
+                        ViewBag . Customers = await _context . Customers . ToListAsync ( );
+                        ViewBag . Products = await _context . Products
                             . Include ( p => p . Category )
                             . Where ( p => p . IsActive )
-                            . ToList ( );
+                            . ToListAsync ( );
                         return View ( );
                   }
 
@@ -109,12 +130,17 @@ namespace SalesInventoryV1 . Controllers
 
                   decimal totalAmount = 0;
 
+                  // ✅ Load all products at once (not in loop!)
+                  var uniqueProductIds = productIds.Distinct().ToList();
+                  var products = await _context.Products
+                .Where(p => uniqueProductIds.Contains(p.ProductId))
+                .ToDictionaryAsync(p => p.ProductId);
+
                   for ( int i = 0 ; i < productIds . Count ; i++ )
                   {
                         if ( quantities [ i ] <= 0 ) continue;
 
-                        var product = _context.Products.Find(productIds[i]);
-                        if ( product != null )
+                        if ( products . TryGetValue ( productIds [ i ] , out var product ) )
                         {
                               var subTotal = product.UnitPrice * quantities[i];
                               totalAmount += subTotal;
@@ -132,101 +158,151 @@ namespace SalesInventoryV1 . Controllers
                   order . TotalAmount = totalAmount;
 
                   _context . SalesOrders . Add ( order );
-                  _context . SaveChanges ( );
+                  await _context . SaveChangesAsync ( );
 
                   TempData [ "SuccessMessage" ] = "Order created successfully!";
                   return RedirectToAction ( nameof ( Details ) , new { id = order . OrderId } );
             }
 
-            // GET: SalesOrders/SalesReport
-            // THIS IS THE SLOW VERSION - Will be optimized in V2
-            public IActionResult SalesReport ( DateTime? startDate , DateTime? endDate )
+            // ✅ CRITICAL: AJAX endpoint for Sales Report using Stored Procedure
+            [HttpGet]
+            public async Task<JsonResult> GetSalesReportData ( DateTime? startDate , DateTime? endDate )
             {
-                  if ( !startDate . HasValue )
-                        startDate = DateTime . Now . AddMonths ( -1 );
-                  if ( !endDate . HasValue )
-                        endDate = DateTime . Now;
-
-                  // Load ALL orders - SLOW with 10,000 records!
-                  var orders = _context.SalesOrders
-                .Include(so => so.Customer)
-                .Include(so => so.OrderDetails)
-                    .ThenInclude(od => od.Product)
-                        .ThenInclude(p => p.Category)
-                .ToList();
-
-                  // Client-side filtering
-                  var filteredOrders = orders
-                .Where(o => o.OrderDate >= startDate.Value && o.OrderDate <= endDate.Value)
-                .ToList();
-
-                  // Complex aggregations in C#
-                  var reportData = new
+                  try
                   {
-                        TotalOrders = filteredOrders.Count,
-                        TotalRevenue = filteredOrders.Sum(o => o.TotalAmount),
-                        CompletedOrders = filteredOrders.Count(o => o.Status == "Completed"),
-                        PendingOrders = filteredOrders.Count(o => o.Status == "Pending"),
-                        CancelledOrders = filteredOrders.Count(o => o.Status == "Cancelled"),
+                        if ( !startDate . HasValue )
+                              startDate = DateTime . Now . AddMonths ( -1 );
+                        if ( !endDate . HasValue )
+                              endDate = DateTime . Now;
 
-                        TopProducts = filteredOrders
-                    .SelectMany(o => o.OrderDetails)
-                    .GroupBy(od => new { od.ProductId, od.Product.ProductName })
-                    .Select(g => new
-                    {
-                          ProductName = g.Key.ProductName,
-                          TotalQuantity = g.Sum(od => od.Quantity),
-                          TotalRevenue = g.Sum(od => od.SubTotal)
-                    })
-                    .OrderByDescending(p => p.TotalRevenue)
-                    .Take(10)
-                    .ToList(),
+                        var startParam = new SqlParameter("@StartDate", SqlDbType.Date) { Value = startDate.Value };
+                        var endParam = new SqlParameter("@EndDate", SqlDbType.Date) { Value = endDate.Value };
 
-                        TopCustomers = filteredOrders
-                    .GroupBy(o => new { o.CustomerId, o.Customer.CustomerName, o.Customer.City })
-                    .Select(g => new
-                    {
-                          CustomerName = g.Key.CustomerName,
-                          City = g.Key.City,
-                          TotalOrders = g.Count(),
-                          TotalSpent = g.Sum(o => o.TotalAmount)
-                    })
-                    .OrderByDescending(c => c.TotalSpent)
-                    .Take(10)
-                    .ToList(),
+                        using ( var command = _context . Database . GetDbConnection ( ) . CreateCommand ( ) )
+                        {
+                              command . CommandText = "usp_GetSalesReport";
+                              command . CommandType = CommandType . StoredProcedure;
+                              command . Parameters . Add ( startParam );
+                              command . Parameters . Add ( endParam );
+                              command . CommandTimeout = 60; // 60 second timeout
 
-                        RevenueByCategory = filteredOrders
-                    .SelectMany(o => o.OrderDetails)
-                    .GroupBy(od => od.Product.Category.CategoryName)
-                    .Select(g => new
-                    {
-                          CategoryName = g.Key,
-                          TotalRevenue = g.Sum(od => od.SubTotal)
-                    })
-                    .OrderByDescending(c => c.TotalRevenue)
-                    .ToList()
-                  };
+                              await _context . Database . OpenConnectionAsync ( );
 
-                  ViewBag . StartDate = startDate . Value . ToString ( "yyyy-MM-dd" );
-                  ViewBag . EndDate = endDate . Value . ToString ( "yyyy-MM-dd" );
+                              using ( var result = await command . ExecuteReaderAsync ( ) )
+                              {
+                                    // Initialize with defaults
+                                    var summary = new { TotalOrders = 0, TotalRevenue = 0m, CompletedOrders = 0, PendingOrders = 0, CancelledOrders = 0, AverageOrderValue = 0m };
+                                    var topProducts = new List<object>();
+                                    var topCustomers = new List<object>();
+                                    var revenueByCategory = new List<object>();
 
-                  return View ( reportData );
+                                    // Result Set 1: Summary
+                                    if ( await result . ReadAsync ( ) )
+                                    {
+                                          summary = new
+                                          {
+                                                TotalOrders = result . GetInt32 ( 0 ) ,
+                                                TotalRevenue = result . GetDecimal ( 1 ) ,
+                                                CompletedOrders = result . GetInt32 ( 2 ) ,
+                                                PendingOrders = result . GetInt32 ( 3 ) ,
+                                                CancelledOrders = result . GetInt32 ( 4 ) ,
+                                                AverageOrderValue = result . GetDecimal ( 5 )
+                                          };
+                                    }
+
+                                    // Result Set 2: Top Products
+                                    await result . NextResultAsync ( );
+                                    while ( await result . ReadAsync ( ) )
+                                    {
+                                          topProducts . Add ( new
+                                          {
+                                                ProductId = result . GetInt32 ( 0 ) ,
+                                                ProductName = result . GetString ( 1 ) ,
+                                                TotalQuantitySold = result . GetInt32 ( 2 ) ,
+                                                TotalRevenue = result . GetDecimal ( 3 ) ,
+                                                OrderCount = result . GetInt32 ( 4 )
+                                          } );
+                                    }
+
+                                    // Result Set 3: Top Customers
+                                    await result . NextResultAsync ( );
+                                    while ( await result . ReadAsync ( ) )
+                                    {
+                                          topCustomers . Add ( new
+                                          {
+                                                CustomerId = result . GetInt32 ( 0 ) ,
+                                                CustomerName = result . GetString ( 1 ) ,
+                                                Email = result . IsDBNull ( 2 ) ? "" : result . GetString ( 2 ) ,
+                                                City = result . IsDBNull ( 3 ) ? "" : result . GetString ( 3 ) ,
+                                                TotalOrders = result . GetInt32 ( 4 ) ,
+                                                TotalSpent = result . GetDecimal ( 5 ) ,
+                                                AverageOrderValue = result . GetDecimal ( 6 )
+                                          } );
+                                    }
+
+                                    // Result Set 4: Revenue by Category
+                                    await result . NextResultAsync ( );
+                                    while ( await result . ReadAsync ( ) )
+                                    {
+                                          revenueByCategory . Add ( new
+                                          {
+                                                CategoryId = result . GetInt32 ( 0 ) ,
+                                                CategoryName = result . GetString ( 1 ) ,
+                                                TotalRevenue = result . GetDecimal ( 2 ) ,
+                                                TotalQuantity = result . GetInt32 ( 3 ) ,
+                                                OrderCount = result . GetInt32 ( 4 )
+                                          } );
+                                    }
+
+                                    return Json ( new
+                                    {
+                                          success = true ,
+                                          data = new
+                                          {
+                                                totalOrders = summary . TotalOrders ,
+                                                totalRevenue = summary . TotalRevenue ,
+                                                completedOrders = summary . CompletedOrders ,
+                                                pendingOrders = summary . PendingOrders ,
+                                                cancelledOrders = summary . CancelledOrders ,
+                                                averageOrderValue = summary . AverageOrderValue ,
+                                                topProducts = topProducts ,
+                                                topCustomers = topCustomers ,
+                                                revenueByCategory = revenueByCategory
+                                          }
+                                    } );
+                              }
+                        }
+                  }
+                  catch ( Exception ex )
+                  {
+                        return Json ( new
+                        {
+                              success = false ,
+                              message = "Error: " + ex . Message
+                        } );
+                  }
             }
 
-            // POST: SalesOrders/Delete
+            // GET: SalesOrders/SalesReport
+            public IActionResult SalesReport ( )
+            {
+                  return View ( );
+            }
+
+            // ✅ Async Delete
             [HttpPost]
             [ValidateAntiForgeryToken]
-            public IActionResult Delete ( int id )
+            public async Task<IActionResult> Delete ( int id )
             {
-                  var order = _context.SalesOrders
+                  var order = await _context.SalesOrders
                 .Include(so => so.OrderDetails)
-                .FirstOrDefault(so => so.OrderId == id);
+                .FirstOrDefaultAsync(so => so.OrderId == id);
 
                   if ( order != null )
                   {
                         _context . SalesOrderDetails . RemoveRange ( order . OrderDetails );
                         _context . SalesOrders . Remove ( order );
-                        _context . SaveChanges ( );
+                        await _context . SaveChangesAsync ( );
 
                         TempData [ "SuccessMessage" ] = "Order deleted successfully!";
                   }

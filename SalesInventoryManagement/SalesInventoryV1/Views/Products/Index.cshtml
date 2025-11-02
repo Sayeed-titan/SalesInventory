@@ -71,7 +71,7 @@
                         <td>
                             @if (product.StockQuantity <= product.ReorderLevel)
                             {
-                                <span class="badge badge-danger">@product.StockQuantity</span>
+                                <span class="badge bg-danger">@product.StockQuantity</span>
                             }
                             else
                             {
@@ -81,20 +81,20 @@
                         <td>
                             @if (product.IsActive)
                             {
-                                <span class="badge badge-success">Active</span>
+                                <span class="badge bg-success">Active</span>
                             }
                             else
                             {
-                                <span class="badge badge-secondary">Inactive</span>
+                                <span class="badge bg-secondary">Inactive</span>
                             }
                         </td>
                         <td>
-                            <a asp-action="Details" asp-route-id="@product.ProductId" 
-                               class="btn btn-sm btn-info">Details</a>
-                            <a asp-action="Edit" asp-route-id="@product.ProductId" 
-                               class="btn btn-sm btn-primary">Edit</a>
-                            <a asp-action="Delete" asp-route-id="@product.ProductId" 
-                               class="btn btn-sm btn-danger">Delete</a>
+                            <a asp-action="Details" asp-route-id="@product.ProductId"
+                                             class="btn btn-sm btn-info"><i class="bi bi-info-square"></i> Details</a>
+                            <a asp-action="Edit" asp-route-id="@product.ProductId"
+                                             class="btn btn-sm btn-primary"><i class="bi bi-pencil-square"></i> Edit</a>
+                            <a asp-action="Delete" asp-route-id="@product.ProductId"
+                                             class="btn btn-sm btn-danger"><i class="bi bi-x-square-fill"></i> Delete</a>
                         </td>
                     </tr>
                 }

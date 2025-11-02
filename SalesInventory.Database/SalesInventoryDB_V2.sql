@@ -133,6 +133,11 @@ BEGIN
     INCLUDE (Email, Phone, City);
 END
 
+-- Composite index for pagination query
+CREATE NONCLUSTERED INDEX IX_SalesOrders_OrderDate_Pagination
+ON SalesOrders(OrderDate DESC, OrderId)
+INCLUDE (CustomerId, OrderNumber, TotalAmount, Status, CreatedDate);
+
 
 -- =====================================================
 -- VERIFY INDEXES
