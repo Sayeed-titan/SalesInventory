@@ -1,183 +1,294 @@
-using Microsoft . AspNetCore . Mvc;
-using Microsoft . EntityFrameworkCore;
-
-using SalesInventoryV2 . Data;
-using SalesInventoryV2 . Models;
-
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using SalesInventoryV2.Data;
+using SalesInventoryV2.Models;
 using System;
-using System . Linq;
+using System.Linq;
+using System.Threading.Tasks;
 
-namespace SalesInventoryV1 . Controllers
+namespace SalesInventoryV2.Controllers
 {
-      public class ProductsController : Controller
-      {
-            private readonly ApplicationDbContext _context;
+    public class ProductsController : Controller
+    {
+        private readonly ApplicationDbContext _context;
 
-            public ProductsController ( ApplicationDbContext context )
-            {
-                  _context = context;
-            }
+        public ProductsController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
 
-            // GET: Products/Index
-            public IActionResult Index ( string searchTerm , int? categoryId )
-            {
-                  // Load products with Category - NO stored procedure
-                  var products = _context.Products
+        //   OPTIMIZED: Async Index with pagination and server-side filtering
+        public async Task<IActionResult> Index(string searchTerm, int? categoryId, int page = 1)
+        {
+            const int pageSize = 50; //   Load 50 products per page
+
+            //   Build query with server-side filters
+            var query = _context.Products
                 .Include(p => p.Category)
-                .ToList();
+                .AsQueryable();
 
-                  // Client-side filtering
-                  if ( !string . IsNullOrEmpty ( searchTerm ) )
-                  {
-                        products = products
-                            . Where ( p => p . ProductName . Contains ( searchTerm , StringComparison . OrdinalIgnoreCase ) )
-                            . ToList ( );
-                  }
-
-                  if ( categoryId . HasValue )
-                  {
-                        products = products . Where ( p => p . CategoryId == categoryId . Value ) . ToList ( );
-                  }
-
-                  ViewBag . Categories = _context . Categories . ToList ( );
-                  ViewBag . SearchTerm = searchTerm;
-                  ViewBag . CategoryId = categoryId;
-
-                  return View ( products );
+            //   Server-side search filtering
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                query = query.Where(p => p.ProductName.Contains(searchTerm));
             }
 
-            // GET: Products/Details/5
-            public IActionResult Details ( int id )
+            //   Server-side category filtering
+            if (categoryId.HasValue && categoryId.Value > 0)
             {
-                  var product = _context.Products
+                query = query.Where(p => p.CategoryId == categoryId.Value);
+            }
+
+            //   Get total count for pagination
+            var totalProducts = await query.CountAsync();
+
+            //   Get only current page of data
+            var products = await query
+                .OrderBy(p => p.ProductName)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            //   Load categories for dropdown (cached query)
+            ViewBag.Categories = await _context.Categories
+                .OrderBy(c => c.CategoryName)
+                .ToListAsync();
+
+            //   Pass filter and pagination data to view
+            ViewBag.SearchTerm = searchTerm;
+            ViewBag.CategoryId = categoryId;
+            ViewBag.CurrentPage = page;
+            ViewBag.TotalPages = (int)Math.Ceiling(totalProducts / (double)pageSize);
+            ViewBag.TotalProducts = totalProducts;
+
+            return View(products);
+        }
+
+        //   OPTIMIZED: Async Details
+        public async Task<IActionResult> Details(int id)
+        {
+            var product = await _context.Products
                 .Include(p => p.Category)
-                .FirstOrDefault(p => p.ProductId == id);
+                .FirstOrDefaultAsync(p => p.ProductId == id);
 
-                  if ( product == null )
-                        return NotFound ( );
+            if (product == null)
+                return NotFound();
 
-                  return View ( product );
+            return View(product);
+        }
+
+        //   OPTIMIZED: Async Create GET
+        public async Task<IActionResult> Create()
+        {
+            ViewBag.Categories = await _context.Categories
+                .OrderBy(c => c.CategoryName)
+                .ToListAsync();
+            return View();
+        }
+
+        //   OPTIMIZED: Async Create POST
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create(Product product)
+        {
+            if (ModelState.IsValid)
+            {
+                product.CreatedDate = DateTime.Now;
+                product.IsActive = true;
+
+                _context.Products.Add(product);
+                await _context.SaveChangesAsync();  //   Async save
+
+                TempData["SuccessMessage"] = "Product created successfully!";
+                return RedirectToAction(nameof(Index));
             }
 
-            // GET: Products/Create
-            public IActionResult Create ( )
+            ViewBag.Categories = await _context.Categories
+                .OrderBy(c => c.CategoryName)
+                .ToListAsync();
+            return View(product);
+        }
+
+        //   OPTIMIZED: Async Edit GET
+        public async Task<IActionResult> Edit(int id)
+        {
+            var product = await _context.Products.FindAsync(id);
+
+            if (product == null)
+                return NotFound();
+
+            ViewBag.Categories = await _context.Categories
+                .OrderBy(c => c.CategoryName)
+                .ToListAsync();
+            return View(product);
+        }
+
+        //   OPTIMIZED: Async Edit POST
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, Product product)
+        {
+            if (id != product.ProductId)
+                return NotFound();
+
+            if (ModelState.IsValid)
             {
-                  ViewBag . Categories = _context . Categories . ToList ( );
-                  return View ( );
+                try
+                {
+                    _context.Update(product);
+                    await _context.SaveChangesAsync();
+                    
+                    TempData["SuccessMessage"] = "Product updated successfully!";
+                }
+                catch (DbUpdateConcurrencyException)
+                {
+                    if (!await ProductExistsAsync(product.ProductId))
+                        return NotFound();
+                    else
+                        throw;
+                }
+                return RedirectToAction(nameof(Index));
             }
 
-            // POST: Products/Create
-            [HttpPost]
-            [ValidateAntiForgeryToken]
-            public IActionResult Create ( Product product )
-            {
-                  if ( ModelState . IsValid )
-                  {
-                        product . CreatedDate = DateTime . Now;
-                        product . IsActive = true;
+            ViewBag.Categories = await _context.Categories
+                .OrderBy(c => c.CategoryName)
+                .ToListAsync();
+            return View(product);
+        }
 
-                        _context . Products . Add ( product );
-                        _context . SaveChanges ( );
-
-                        TempData [ "SuccessMessage" ] = "Product created successfully!";
-                        return RedirectToAction ( nameof ( Index ) );
-                  }
-
-                  ViewBag . Categories = _context . Categories . ToList ( );
-                  return View ( product );
-            }
-
-            // GET: Products/Edit/5
-            public IActionResult Edit ( int id )
-            {
-                  var product = _context.Products.Find(id);
-
-                  if ( product == null )
-                        return NotFound ( );
-
-                  ViewBag . Categories = _context . Categories . ToList ( );
-                  return View ( product );
-            }
-
-            // POST: Products/Edit/5
-            [HttpPost]
-            [ValidateAntiForgeryToken]
-            public IActionResult Edit ( int id , Product product )
-            {
-                  if ( id != product . ProductId )
-                        return NotFound ( );
-
-                  if ( ModelState . IsValid )
-                  {
-                        try
-                        {
-                              _context . Update ( product );
-                              _context . SaveChanges ( );
-
-                              TempData [ "SuccessMessage" ] = "Product updated successfully!";
-                        }
-                        catch ( DbUpdateConcurrencyException )
-                        {
-                              if ( !ProductExists ( product . ProductId ) )
-                                    return NotFound ( );
-                              else
-                                    throw;
-                        }
-                        return RedirectToAction ( nameof ( Index ) );
-                  }
-
-                  ViewBag . Categories = _context . Categories . ToList ( );
-                  return View ( product );
-            }
-
-            // GET: Products/Delete/5
-            public IActionResult Delete ( int id )
-            {
-                  var product = _context.Products
+        //   OPTIMIZED: Async Delete GET
+        public async Task<IActionResult> Delete(int id)
+        {
+            var product = await _context.Products
                 .Include(p => p.Category)
-                .FirstOrDefault(p => p.ProductId == id);
+                .FirstOrDefaultAsync(p => p.ProductId == id);
 
-                  if ( product == null )
-                        return NotFound ( );
+            if (product == null)
+                return NotFound();
 
-                  return View ( product );
+            return View(product);
+        }
+
+        //   OPTIMIZED: Async Delete POST
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteConfirmed(int id)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product != null)
+            {
+                _context.Products.Remove(product);
+                await _context.SaveChangesAsync();
+                
+                TempData["SuccessMessage"] = "Product deleted successfully!";
             }
 
-            // POST: Products/Delete/5
-            [HttpPost, ActionName ( "Delete" )]
-            [ValidateAntiForgeryToken]
-            public IActionResult DeleteConfirmed ( int id )
-            {
-                  var product = _context.Products.Find(id);
-                  if ( product != null )
-                  {
-                        _context . Products . Remove ( product );
-                        _context . SaveChanges ( );
+            return RedirectToAction(nameof(Index));
+        }
 
-                        TempData [ "SuccessMessage" ] = "Product deleted successfully!";
-                  }
+        //   OPTIMIZED: Async Low Stock Report with server-side filtering and pagination
+        public async Task<IActionResult> LowStockReport(int page = 1)
+        {
+            const int pageSize = 50;
 
-                  return RedirectToAction ( nameof ( Index ) );
-            }
-
-            // GET: Products/LowStockReport
-            public IActionResult LowStockReport ( )
-            {
-                  var products = _context.Products
+            //   Server-side filtering - only low stock products
+            var query = _context.Products
                 .Include(p => p.Category)
-                .ToList();
+                .Where(p => p.StockQuantity <= p.ReorderLevel && p.IsActive);
 
-                  var lowStockProducts = products
-                .Where(p => p.StockQuantity <= p.ReorderLevel && p.IsActive)
+            //   Get total count
+            var totalProducts = await query.CountAsync();
+
+            //   Get paginated results
+            var lowStockProducts = await query
                 .OrderBy(p => p.StockQuantity)
-                .ToList();
+                .ThenBy(p => p.ProductName)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
 
-                  return View ( lowStockProducts );
-            }
+            //   Pass pagination data
+            ViewBag.CurrentPage = page;
+            ViewBag.TotalPages = (int)Math.Ceiling(totalProducts / (double)pageSize);
+            ViewBag.TotalProducts = totalProducts;
 
-            private bool ProductExists ( int id )
-            {
-                  return _context . Products . Any ( e => e . ProductId == id );
-            }
-      }
+            return View(lowStockProducts);
+        }
+
+        //   NEW: AJAX endpoint for quick product search (autocomplete)
+        [HttpGet]
+        public async Task<JsonResult> SearchProducts(string term)
+        {
+            if (string.IsNullOrWhiteSpace(term))
+                return Json(new List<object>());
+
+            var products = await _context.Products
+                .Where(p => p.IsActive && p.ProductName.Contains(term))
+                .OrderBy(p => p.ProductName)
+                .Take(10)
+                .Select(p => new 
+                {
+                    id = p.ProductId,
+                    label = p.ProductName,
+                    category = p.Category.CategoryName,
+                    price = p.UnitPrice,
+                    stock = p.StockQuantity
+                })
+                .ToListAsync();
+
+            return Json(products);
+        }
+
+        //   NEW: AJAX endpoint for product details (for quick view)
+        [HttpGet]
+        public async Task<JsonResult> GetProductDetails(int id)
+        {
+            var product = await _context.Products
+                .Include(p => p.Category)
+                .Where(p => p.ProductId == id)
+                .Select(p => new
+                {
+                    productId = p.ProductId,
+                    productName = p.ProductName,
+                    categoryId = p.CategoryId,
+                    categoryName = p.Category.CategoryName,
+                    unitPrice = p.UnitPrice,
+                    stockQuantity = p.StockQuantity,
+                    reorderLevel = p.ReorderLevel,
+                    isActive = p.IsActive,
+                    createdDate = p.CreatedDate.ToString("yyyy-MM-dd")
+                })
+                .FirstOrDefaultAsync();
+
+            if (product == null)
+                return Json(new { success = false, message = "Product not found" });
+
+            return Json(new { success = true, data = product });
+        }
+
+        //   NEW: Get products by category (AJAX)
+        [HttpGet]
+        public async Task<JsonResult> GetProductsByCategory(int categoryId)
+        {
+            var products = await _context.Products
+                .Where(p => p.CategoryId == categoryId && p.IsActive)
+                .OrderBy(p => p.ProductName)
+                .Select(p => new
+                {
+                    id = p.ProductId,
+                    name = p.ProductName,
+                    price = p.UnitPrice,
+                    stock = p.StockQuantity
+                })
+                .ToListAsync();
+
+            return Json(products);
+        }
+
+        //   OPTIMIZED: Async helper method
+        private async Task<bool> ProductExistsAsync(int id)
+        {
+            return await _context.Products.AnyAsync(e => e.ProductId == id);
+        }
+    }
 }

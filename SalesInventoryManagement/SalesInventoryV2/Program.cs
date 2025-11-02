@@ -1,51 +1,68 @@
-﻿using Microsoft . EntityFrameworkCore;
-using Microsoft . Extensions . Options;
-using Microsoft . Win32;
+﻿// Program.cs
+// FIXED VERSION - Correct service registration order
 
+using Microsoft . EntityFrameworkCore;
 using SalesInventoryV2 . Data;
+using SalesInventoryV2 . Services;
+using DinkToPdf;
+using DinkToPdf . Contracts;
+using System . Runtime . Loader;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Add services to the container
 builder . Services . AddControllersWithViews ( );
 
-// ===== Register DbContext with Connection String =====
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-{
-    options.UseSqlServer(
-        builder.Configuration.GetConnectionString("DefaultConnection"),
-        sqlServerOptions => sqlServerOptions
-            .CommandTimeout(60) // 60 second timeout
-            .EnableRetryOnFailure(
-                maxRetryCount: 3,
-                maxRetryDelay: TimeSpan . FromSeconds ( 5 ),
-                errorNumbersToAdd: null
-            )
-    );
+//   Register DinkToPdf FIRST (before DbContext)
+// Load native library
+var context = new CustomAssemblyLoadContext();
+var wkHtmlToPdfPath = System.IO.Path.Combine(
+    Directory.GetCurrentDirectory(),
+    "wwwroot",
+    "lib",
+    "wkhtmltox",
+    "libwkhtmltox.dll"
+);
 
-// V2: Enable sensitive data logging in development (shows parameter values)
-if ( builder . Environment . IsDevelopment ( ) )
+// Only load if file exists
+if ( System . IO . File . Exists ( wkHtmlToPdfPath ) )
 {
-      options . EnableSensitiveDataLogging ( );
-      options . EnableDetailedErrors ( );
+      context . LoadUnmanagedLibrary ( wkHtmlToPdfPath );
+      Console . WriteLine ( "✓ DinkToPdf library loaded successfully" );
 }
-});
+else
+{
+      Console . WriteLine ( $"⚠ Warning: libwkhtmltox.dll not found at {wkHtmlToPdfPath}" );
+      Console . WriteLine ( "PDF export will not work. Please download the library." );
+}
 
-// ===== Optional: Add Response Compression =====
+// Register DinkToPdf converter as Singleton
+builder . Services . AddSingleton ( typeof ( IConverter ) , new SynchronizedConverter ( new PdfTools ( ) ) );
+
+//   Register Report Export Service
+builder . Services . AddScoped<ReportExportService> ( );
+
+//   Register DbContext (AFTER other services)
+builder . Services . AddDbContext<ApplicationDbContext> ( options =>
+    options . UseSqlServer (
+        builder . Configuration . GetConnectionString ( "DefaultConnection" ) ,
+        sqlServerOptions => sqlServerOptions
+            . CommandTimeout ( 60 )
+            . EnableRetryOnFailure ( maxRetryCount: 3 )
+    ) );
+
+// Optional: Add response compression
 builder . Services . AddResponseCompression ( options =>
 {
       options . EnableForHttps = true;
 } );
 
-// ===== Optional: Add Response Caching =====
-builder . Services . AddResponseCaching ( );
-
-// ===== Optional: Add Memory Cache for frequently accessed data =====
+// Optional: Add memory cache
 builder . Services . AddMemoryCache ( );
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// Configure the HTTP request pipeline
 if ( !app . Environment . IsDevelopment ( ) )
 {
       app . UseExceptionHandler ( "/Home/Error" );
@@ -59,26 +76,23 @@ else
 app . UseHttpsRedirection ( );
 app . UseStaticFiles ( );
 
-app.UseResponseCompression();
-
-app . UseResponseCaching ( );
+// Enable response compression
+app . UseResponseCompression ( );
 
 app . UseRouting ( );
-
 app . UseAuthorization ( );
 
 app . MapControllerRoute (
     name: "default" ,
     pattern: "{controller=Home}/{action=Index}/{id?}" );
 
-// ===== Optional: Database initialization check =====
+// Optional: Test database connection on startup
 using ( var scope = app . Services . CreateScope ( ) )
 {
-      var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
       try
       {
-            // Test database connection
-            var canConnect = await context.Database.CanConnectAsync();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var canConnect = await dbContext.Database.CanConnectAsync();
             if ( canConnect )
             {
                   Console . WriteLine ( "✓ Database connection successful!" );
@@ -95,3 +109,22 @@ using ( var scope = app . Services . CreateScope ( ) )
 }
 
 app . Run ( );
+
+//   Custom Assembly Load Context for DinkToPdf
+internal class CustomAssemblyLoadContext : AssemblyLoadContext
+{
+      public IntPtr LoadUnmanagedLibrary ( string absolutePath )
+      {
+            return LoadUnmanagedDll ( absolutePath );
+      }
+
+      protected override IntPtr LoadUnmanagedDll ( string unmanagedDllName )
+      {
+            return LoadUnmanagedDllFromPath ( unmanagedDllName );
+      }
+
+      protected override System . Reflection . Assembly? Load ( System . Reflection . AssemblyName assemblyName )
+      {
+            return null;
+      }
+}
